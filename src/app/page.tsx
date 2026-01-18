@@ -1,15 +1,34 @@
 "use client";
 
+import { useEffect } from "react";
 import { useGithubRepos } from "./hooks/useGithubRepos";
 import RepoListItem from "./components/RepoListItem";
-import InitialState from "./components/InitialState";
+import InitialLoad from "./components/InitialLoad";
 
 export default function Home() {
   const { repos, loading, error, page, hasNext, next, prev } = useGithubRepos(1);
 
-  const initialState = (
-    <InitialState loading={loading} error={error} hasData={repos.length > 0} />
-  );
+  // Keyboard navigation for pagination
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (loading) return;
+      if (event.key === "ArrowLeft" && page > 1) {
+        event.preventDefault();
+        prev();
+      } else if ((event.key === "ArrowRight" || event.key === "ArrowDown") && hasNext) {
+        event.preventDefault();
+        next();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [hasNext, loading, next, page, prev]);
+
+  const initialState = InitialLoad({
+    loading,
+    error,
+    hasData: repos.length > 0,
+  });
   if (initialState) return initialState;
 
   return (
@@ -19,22 +38,37 @@ export default function Home() {
           <h1 className="text-2xl font-semibold">GitHub Repository Listing</h1>
         </div>
         <span className="text-sm text-gray-300">Page {page}</span>
-        {loading && <span className="text-sm text-gray-400">Loading…</span>}
       </header>
 
-      <ul className="grid max-w-3xl w-full border rounded-lg border-[#3d444d]">
-        {repos.map((repo) => (
-          <RepoListItem
-            key={repo.id}
-            name={repo.name}
-            description={repo.description}
-            htmlUrl={repo.html_url}
-            stars={repo.stargazers_count}
-            forks={repo.forks_count}
-            updatedAt={repo.updated_at}
-          />
-        ))}
-      </ul>
+      <section className="w-full max-w-3xl border rounded-lg border-[#3d444d] min-h-[1000px]">
+        {loading ? (
+          <div className="flex min-h-[200px] items-center justify-center">
+            <div className="flex items-center gap-3">
+              <span
+                className="inline-flex h-5 w-5 animate-spin rounded-full border-2 border-gray-400 border-t-transparent"
+                aria-hidden="true"
+              />
+              <span className="text-sm text-gray-300" role="status">
+                Loading…
+              </span>
+            </div>
+          </div>
+        ) : (
+          <ul className="grid">
+            {repos.map((repo) => (
+              <RepoListItem
+                key={repo.id}
+                name={repo.name}
+                description={repo.description}
+                htmlUrl={repo.html_url}
+                stars={repo.stargazers_count}
+                forks={repo.forks_count}
+                updatedAt={repo.updated_at}
+              />
+            ))}
+          </ul>
+        )}
+      </section>
 
       <nav className="flex flex-wrap items-center gap-3" aria-label="Pagination">
         <button
